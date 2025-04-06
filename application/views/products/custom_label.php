@@ -74,26 +74,26 @@
 
                     <div class="col-sm-2"><label class="col-form-label"
                                                  for="width">Sheet Width</label>
-                        <input name="width" class="form-control required" type="number" value="160">
+                        <input name="width" class="form-control required" type="number" value="100">
                         <small>in MM</small>
 
                     </div>
                     <div class="col-sm-2"><label class="col-form-label"
                                                  for="width">Sheet Height</label>
-                        <input name="height" class="form-control required" type="number" value="50">
+                        <input name="height" class="form-control required" type="number" value="109">
                         <small>in MM</small>
 
                     </div>
 
                     <div class="col-sm-2"><label class="col-form-label"
                                                  for="width">Label Width</label>
-                        <input name="label_width" class="form-control required" type="number" value="80">
+                        <input name="label_width" class="form-control required" type="number" value="33">
                         <small>in MM</small>
 
                     </div>
                     <div class="col-sm-2"><label class="col-form-label"
                                                  for="width">Label Height</label>
-                        <input name="label_height" class="form-control required" type="number" value="50">
+                        <input name="label_height" class="form-control required" type="number" value="15">
                         <small>in MM</small>
 
                     </div>
@@ -143,11 +143,11 @@
 
     <div class="col-sm-2"><label class="col-form-label"
                                                  for="width">BarCode Width</label>
-               <input name="bar_width" class="form-control required" type="number" value="50">
+               <input name="bar_width" class="form-control required" type="number" value="25">
                     </div>                     <div class="col-sm-2"><label class="col-form-label"
                                                  for="width">BarCode height</label>
 
-                                              <input name="bar_height" class="form-control required" type="number" value="30">
+                                              <input name="bar_height" class="form-control required" type="number" value="4">
                     </div>  <div class="col-sm-2"><label class="col-form-label"
                                                  for="font_size">Font Size</label>
                         <select class="form-control" name="font_size">
@@ -229,37 +229,76 @@
     </div>
 
     <script type="text/javascript">
-        $("#products_l").select2();
-        $("#wfrom").on('change', function () {
-            var tips = $('#wfrom').val();
-            $("#products_l").select2({
+$(document).ready(function() {
+    // Initialize products select2 with placeholder
+    $("#products_l").select2({
+        placeholder: "Select products...",
+        allowClear: true
+    });
 
-                tags: [],
-                ajax: {
-                    url: baseurl + 'products/stock_transfer_products?wid=' + tips,
-                    dataType: 'json',
-                    type: 'POST',
-                    quietMillis: 50,
-                    data: function (product) {
-
+    // Clear products when warehouse changes
+    $("#wfrom").off('change').on('change', function() {
+        var warehouseId = $(this).val();
+        var $productsSelect = $("#products_l");
+        
+        // Clear previous selection and reset
+        $productsSelect.val(null).trigger('change').empty();
+        
+        // Don't proceed if no warehouse selected
+        if (!warehouseId || warehouseId == '0') {
+            $productsSelect.select2({
+                placeholder: "Please select a warehouse first",
+                allowClear: true
+            });
+            return;
+        }
+        
+        // Reinitialize Select2 with fresh configuration
+        $productsSelect.select2('destroy').select2({
+            placeholder: "Type to search products...",
+            allowClear: true,
+            multiple: true,
+            ajax: {
+                url: baseurl + 'products/stock_transfer_products?wid=' + warehouseId,
+                dataType: 'json',
+                type: 'POST',
+                delay: 300,
+                data: function(params) {
+                    return {
+                        product: { term: params.term },
+                        '<?=$this->security->get_csrf_token_name()?>': crsf_hash
+                    };
+                },
+                processResults: function(data) {
+                    if (data && data.length > 0) {
                         return {
-                            product: product,
-                            '<?=$this->security->get_csrf_token_name()?>': crsf_hash
-
-                        };
-                    },
-                    processResults: function (data) {
-                        return {
-                            results: $.map(data, function (item) {
+                            results: $.map(data, function(item) {
                                 return {
-                                    text: item.product_name,
+                                    text: item.product_name + (item.product_code ? ' (' + item.product_code + ')' : ''),
                                     id: item.pid
                                 }
                             })
                         };
-                    },
+                    }
+                    return { results: [] };
+                },
+                error: function(xhr, status, error) {
+                    console.error("AJAX Error:", status, error);
+                    return { results: [] };
                 }
-            });
+            }
         });
-    </script>
-
+        
+        // Manually open the dropdown to prompt user to search
+        setTimeout(function() {
+            $productsSelect.select2('open');
+        }, 100);
+    });
+    
+    // Reset form when coming back (if needed)
+    if (performance.navigation.type === 2) {
+        // This page was loaded via back/forward button
+        $("#wfrom").trigger('change');
+    }
+});
+</script>
